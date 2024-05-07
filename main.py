@@ -8,13 +8,17 @@ if __name__ == "__main__":
     parser.add_argument("sort_order", nargs="+", choices=["album", "artist", "title"], help="Specify sort order")
     args = parser.parse_args()
 
-    import ytmusicapi
+    import copy, ytmusicapi
     ytmusic = ytmusicapi.YTMusic("browser.json")
     playlist = ytmusic.get_playlist(args.playlist_id, None, False, 0)
-    tracks = playlist["tracks"]
+    tracks = copy.deepcopy(playlist["tracks"])
+
+    album_dict = {}
 
     def sort_by_album(track):
         try:
+            album_dict[track["album"]["name"].lower() or ""] = track
+
             if args.album == "random":
                 return hash(track["album"]["name"] or "")
             else:
@@ -22,8 +26,12 @@ if __name__ == "__main__":
         except:
             return ""
 
+    artist_dict = {}
+
     def sort_by_artist(track):
         try:
+            artist_dict[track["artists"][0]["name"].lower() or ""] = track
+
             if args.artist == "random":
                 return hash(track["artists"][0]["name"] or "")
             else:
@@ -31,8 +39,12 @@ if __name__ == "__main__":
         except:
             return ""
 
+    title_dict = {}
+
     def sort_by_title(track):
         try:
+            title_dict[track["title"].lower() or ""] = track
+
             if args.title == "random":
                 return hash(track["title"] or "")
             else:
@@ -56,21 +68,34 @@ if __name__ == "__main__":
                 tracks = sorted(tracks, key=sort_by_title)
             else:
                 tracks = sorted(tracks, key=sort_by_title, reverse=True if args.title == "descending" else False)
-    
+
     import random, time
-    last_track = None
+
+    anchor_track = playlist["tracks"][0]
 
     while len(tracks) > 0:
         track = tracks.pop(0)
 
-        if last_track:
-            track_order = (last_track["setVideoId"], track["setVideoId"],)
-            print(f"Moving '{last_track["title"]}' before '{track["title"]}'...", end="")
-            ytmusic.edit_playlist(args.playlist_id, moveItem=track_order)
-            print("success!")
+        # Use the first track in the playlist as an anchor point to sort the other tracks
+        # Move the first track after all other tracks have been sorted
 
-        last_track = track
-        seconds = random.randint(1,4)
-        milliseconds = random.randint(0,1000)
-        time.sleep(seconds + milliseconds / 1000)
+        if track["setVideoId"] != anchor_track["setVideoId"]:
+            track_order = (track["setVideoId"], anchor_track["setVideoId"],)
+            print(f"Moving '{track["title"]}' before '{anchor_track["title"]}'...", end="")
+
+            if playlist["tracks"].index(track) != playlist["tracks"].index(anchor_track) - 1:
+                ytmusic.edit_playlist(args.playlist_id, moveItem=track_order)
+                seconds = random.randint(1,2)
+                milliseconds = random.randint(0,1000)
+                time.sleep(seconds + milliseconds / 1000)
+
+            print("success!")
+        else:
+            bookmark_track = tracks[0]
+
+    print(f"Moving '{anchor_track["title"]}' before '{bookmark_track["title"]}'...", end="")
+    track_order = (anchor_track["setVideoId"], bookmark_track["setVideoId"])
+    ytmusic.edit_playlist(args.playlist_id, moveItem=track_order)
+    print("success!")
+        
         
