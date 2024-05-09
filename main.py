@@ -71,31 +71,28 @@ if __name__ == "__main__":
 
     import random, time
 
-    anchor_track = playlist["tracks"][0]
+    # anchor_track is a track in the playlist that is in the wrong spot and needs to be moved ahead of its current position
+    # instead of moving anchor_track directly, we move the correct tracks into anchor_track's current position, which pushes anchor_track forward
+    # at some point, anchor_track will reach it's correct position, and a new anchor_track will be chosen
+    anchor_track = playlist["tracks"].pop(0)
 
     while len(tracks) > 0:
         track = tracks.pop(0)
 
-        # Use the first track in the playlist as an anchor point to sort the other tracks
-        # Move the first track after all other tracks have been sorted
-
-        if track["setVideoId"] != anchor_track["setVideoId"]:
+        #anchor_track is in the wrong position; move the correct track in its current position
+        if track != anchor_track:
             track_order = (track["setVideoId"], anchor_track["setVideoId"],)
-            print(f"Moving '{track["title"]}' before '{anchor_track["title"]}'...", end="")
-
-            if playlist["tracks"].index(track) != playlist["tracks"].index(anchor_track) - 1:
-                ytmusic.edit_playlist(args.playlist_id, moveItem=track_order)
-                seconds = random.randint(1,2)
-                milliseconds = random.randint(0,1000)
-                time.sleep(seconds + milliseconds / 1000)
-
-            print("success!")
+            print(f"Moving '{track["title"]}' before '{anchor_track["title"]}'")
+            ytmusic.edit_playlist(args.playlist_id, moveItem=track_order)
+            # avoid rate limit
+            seconds = random.randint(1,3)
+            milliseconds = random.randint(0,1000)
+            time.sleep(seconds + milliseconds / 1000)
+            # since track is in the correct position it cannot function as an anchor_track, so it must be removed
+            if len(playlist["tracks"]) > 0:
+                playlist["tracks"].remove(track)
+        # anchor_track is in the correct position; choose a new anchor_track
         else:
-            bookmark_track = tracks[0]
-
-    print(f"Moving '{anchor_track["title"]}' before '{bookmark_track["title"]}'...", end="")
-    track_order = (anchor_track["setVideoId"], bookmark_track["setVideoId"])
-    ytmusic.edit_playlist(args.playlist_id, moveItem=track_order)
-    print("success!")
-        
-        
+            if len(playlist["tracks"]) > 0:
+                anchor_track = playlist["tracks"].pop(0)
+            print(f"Skipping {track["title"]}")
